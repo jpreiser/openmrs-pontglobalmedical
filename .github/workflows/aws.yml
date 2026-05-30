@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allow manual trigger from GitHub UI
 
 env:
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '21'
   TOMCAT_WEBAPPS: '/var/lib/tomcat10/webapps'
   TOMCAT_SERVICE: 'tomcat10'
   BACKUP_DIR: '/home/ubuntu/db-backups'
