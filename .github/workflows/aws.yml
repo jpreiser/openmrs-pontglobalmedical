@@ -187,36 +187,54 @@ jobs:
           echo "SSM Command ID: $COMMAND_ID"
           echo "DEPLOY_COMMAND_ID=$COMMAND_ID" >> $GITHUB_ENV
 
-      - name: Wait for deploy to complete
+      - name: Deploy WAR via SSM
         run: |
-          # WAR deploy + Tomcat restart can take a few minutes
-          aws ssm wait command-executed \
-            --command-id "${{ env.DEPLOY_COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --cli-read-timeout 300
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "OpenMRS WAR deploy" \
+            --parameters 'commands=["aws s3 cp s3://${{ secrets.S3_DEPLOY_BUCKET }}/openmrs-deploy/openmrs.war /tmp/openmrs_new.war","sudo systemctl stop tomcat10","sudo rm -rf /var/lib/tomcat10/webapps/openmrs","sudo rm -f /var/lib/tomcat10/webapps/openmrs.war","sudo cp /tmp/openmrs_new.war /var/lib/tomcat10/webapps/openmrs.war","sudo chown tomcat:tomcat /var/lib/tomcat10/webapps/openmrs.war","rm -f /tmp/openmrs_new.war","sudo systemctl start tomcat10","sleep 60","STATUS=$(systemctl is-active tomcat10)","echo Tomcat status: $STATUS","[ \"$STATUS\" = \"active\" ] || exit 1","echo Deploy complete"]' \
+            --timeout-seconds 300 \
+            --query "Command.CommandId" \
+            --output text)
 
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "${{ env.DEPLOY_COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query "Status" --output text)
+          echo "SSM Command ID: $COMMAND_ID"
 
-          OUTPUT=$(aws ssm get-command-invocation \
-            --command-id "${{ env.DEPLOY_COMMAND_ID }}" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-            --query "StandardOutputContent" --output text)
-
-          echo "$OUTPUT"
-
-          if [ "$STATUS" != "Success" ]; then
-            echo "✗ Deploy failed with status: $STATUS"
-            aws ssm get-command-invocation \
-              --command-id "${{ env.DEPLOY_COMMAND_ID }}" \
+          # Poll manually so we can print errors on failure
+          for i in {1..30}; do
+            sleep 15
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
               --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
-              --query "StandardErrorContent" --output text
-            exit 1
-          fi
-          echo "✓ Tomcat restarted successfully"
+              --query "Status" --output text 2>/dev/null || echo "Pending")
 
+            echo "Attempt $i: Status = $STATUS"
+
+            if [ "$STATUS" = "Success" ]; then
+              echo "✓ Deploy completed successfully"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --query "StandardOutputContent" --output text
+              exit 0
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "✗ Deploy failed with status: $STATUS"
+              echo "=== STDOUT ==="
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --query "StandardOutputContent" --output text
+              echo "=== STDERR ==="
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --query "StandardErrorContent" --output text
+              exit 1
+            fi
+          done
+
+          echo "✗ Timed out waiting for deploy"
+          exit 1
       # ── STEP 4: Smoke test ───────────────────────────────────────────────
       - name: Health check
         run: |
