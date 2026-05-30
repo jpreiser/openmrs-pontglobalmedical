@@ -73,7 +73,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-openmrs-deploy
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/pontmedical-openmrs-github-actions 
           aws-region: ${{ env.AWS_REGION }}
 
       # ── STEP 1: Database backup BEFORE any code changes ──────────────────
