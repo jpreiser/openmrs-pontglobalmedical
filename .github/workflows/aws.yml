@@ -11,7 +11,7 @@ env:
   TOMCAT_WEBAPPS: '/var/lib/tomcat10/webapps'
   TOMCAT_SERVICE: 'tomcat10'
   BACKUP_DIR: '/home/ubuntu/db-backups'
-  DB_NAME: 'openmrs'       # Change to your actual DB name (may be 'server' based on your backup cmd)
+  DB_NAME: 'server'       # Change to your actual DB name (may be 'server' based on your backup cmd)
   DB_USER: 'root'
   AWS_REGION: 'us-east-1'  # Change to your EC2's region
 
