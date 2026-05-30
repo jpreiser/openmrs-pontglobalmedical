@@ -3,7 +3,7 @@ name: Build & Deploy OpenMRS
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:  # Allow manual trigger from GitHub UI
 
 env:
@@ -11,9 +11,9 @@ env:
   TOMCAT_WEBAPPS: '/var/lib/tomcat10/webapps'
   TOMCAT_SERVICE: 'tomcat10'
   BACKUP_DIR: '/home/ubuntu/db-backups'
-  DB_NAME: 'server'       # Change to your actual DB name (may be 'server' based on your backup cmd)
+  DB_NAME: 'server'
   DB_USER: 'root'
-  AWS_REGION: 'us-east-1'  # Change to your EC2's region
+  AWS_REGION: 'us-east-1'  # Change to your EC2's region if different
 
 permissions:
   id-token: write   # Required for OIDC token generation
@@ -73,7 +73,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/pontmedical-openmrs-github-actions 
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-openmrs-deploy
           aws-region: ${{ env.AWS_REGION }}
 
       # ── STEP 1: Database backup BEFORE any code changes ──────────────────
